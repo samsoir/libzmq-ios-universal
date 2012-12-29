@@ -25,7 +25,7 @@ CURRENT_DIR=`pwd`
 LIBZMQ_FILE="libzmq.a"
 LIBZMQ_ARMV7_PREFIX="armv7"
 LIBZMQ_ARMV7S_PREFIX="armv7s"
-LIBZMQ_I686_PREFIX="i686"
+LIBZMQ_I686_PREFIX="i386"
 LIBZMQ_UNIVERSAL_FILE="libzmq.a"
 LIBZMQ_UNIVERSAL_PREFIX="universal"
 ZMQ_BUILD_LOG_FILE=$BUILD_DIR/build.log
@@ -86,7 +86,7 @@ create_universal_library ()
 
 clean_build_dir ()
 {
-  echo "Reinstating build directory..."
+  echo "Initializing build directory..."
   if [[ -d ${BUILD_DIR} ]]; then
     rm -rf ${BUILD_DIR}
   fi
@@ -98,7 +98,7 @@ clean_build_dir ()
 
 clean_dependency_dir ()
 {
-  echo "Reinstating dependency directory..."
+  echo "Initializing dependency directory..."
   if [[ -d ${GLOBAL_OUTDIR} ]]; then
     rm -rf ${GLOBAL_OUTDIR}
   fi
@@ -133,17 +133,17 @@ setenv_all ()
   export STRIP="${DEVROOT}/usr/bin/strip"
   export RANLIB="${DEVROOT}/usr/bin/ranlib"
 
-  export CFLAGS="$CFLAGS -I$GLOBAL_OUTDIR/include -L$GLOBAL_OUTDIR/lib"
-  export CXXFLAGS=$CFLAGS
+  export CFLAGS="${CFLAGS} -I${GLOBAL_OUTDIR}/include -L${GLOBAL_OUTDIR}/lib"
+  export CXXFLAGS=${CFLAGS}
 }
 
 setenv_armv7 ()
 {
-  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM CXXCPP RANLIB LDFLAGS CPPFLAGS CXXFLAGS
+  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM RANLIB LDFLAGS CXXFLAGS
 
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
-  export SDKROOT=$DEVROOT/SDKs/iPhoneOS$IOS_BASE_SDK.sdk
-  export CFLAGS="-arch armv7 -pipe -no-cpp-precomp -isysroot $SDKROOT -miphoneos-version-min=$IOS_DEPLOY_TARGET -I$SDKROOT/usr/include/"
+  export SDKROOT=${DEVROOT}/SDKs/iPhoneOS${IOS_BASE_SDK}.sdk
+  export CFLAGS="-arch armv7 -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I{$SDKROOT}/usr/include/"
   export BUILD_HOST="arm-apple-darwin11"
 
   setenv_all
@@ -151,11 +151,11 @@ setenv_armv7 ()
 
 setenv_armv7s ()
 {
-  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM CXXCPP RANLIB LDFLAGS CPPFLAGS CXXFLAGS
+  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM RANLIB LDFLAGS CXXFLAGS
 
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
-  export SDKROOT=$DEVROOT/SDKs/iPhoneOS$IOS_BASE_SDK.sdk
-  export CFLAGS="-arch armv7s -pipe -no-cpp-precomp -isysroot $SDKROOT -miphoneos-version-min=$IOS_DEPLOY_TARGET -I$SDKROOT/usr/include/"
+  export SDKROOT=${DEVROOT}/SDKs/iPhoneOS${IOS_BASE_SDK}.sdk
+  export CFLAGS="-arch armv7s -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
   export BUILD_HOST="arm-apple-darwin11"
 
   setenv_all
@@ -163,11 +163,11 @@ setenv_armv7s ()
 
 setenv_i686 ()
 {
-  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM CXXCPP RANLIB LDFLAGS CPPFLAGS CXXFLAGS
+  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM RANLIB LDFLAGS CXXFLAGS
 
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer"
-  export SDKROOT=$DEVROOT/SDKs/iPhoneSimulator$IOS_BASE_SDK.sdk
-  export CFLAGS="-arch i386 -pipe -no-cpp-precomp -isysroot $SDKROOT -miphoneos-version-min=$IOS_DEPLOY_TARGET -I$SDKROOT/usr/include/"
+  export SDKROOT=${DEVROOT}/SDKs/iPhoneSimulator${IOS_BASE_SDK}.sdk
+  export CFLAGS="-arch i386 -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
   export BUILD_HOST="i686-apple-darwin10"
 
   setenv_all
@@ -253,7 +253,7 @@ verify_libzmq_location ()
 
 while getopts ":hvl:" OPTION
 do
-  case $OPTION in
+  case ${OPTION} in
     h)
       print_help_text
       ;;
@@ -261,7 +261,7 @@ do
       print_version_number
       ;;
     l)
-      LIBZMQ_DIR=$OPTARG
+      LIBZMQ_DIR=${OPTARG}
       ;;
   esac
 done
