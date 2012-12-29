@@ -49,7 +49,7 @@ To download libzmq 3.2.2 and untar it, use the following command;
 
 Compile the unversal (fat) static library using the following command;
 
-```./compile_libzmq_ios_universal```
+```/compile_libzmq_ios_universal```
 
 Once compilation is complete, instructions on where the compiled binary and
 header files are printed to the screen.
