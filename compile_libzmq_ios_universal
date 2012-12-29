@@ -20,7 +20,7 @@
 
 GLOBAL_OUTDIR=`pwd`/dependencies
 BUILD_DIR=`pwd`/build
-LIBZMQ_DIR=`pwd`/libzmq
+LIBZMQ_DIR="`pwd`/zeromq-3.2.2"
 CURRENT_DIR=`pwd`
 LIBZMQ_FILE="libzmq.a"
 LIBZMQ_ARMV7_PREFIX="armv7"
@@ -45,9 +45,8 @@ for use with the iOS Simulator (i386) and iOS device
 Options:
   -h     show this message and exit
   -v     show version number and exit
-  -l     libzmq configure autoconf location. e.g. /tmp/libzmq
-         If not supplied assumes "libzmq" is relative 
-         to current path.
+  -l     libzmq configure autoconf location. e.g. /tmp/zeromq-3.2.2
+         If not supplied assumes ${LIBZMQ_DIR}
 
 Requires:
   libzmq 3.2.2 or later, plus libzmq required libraries
