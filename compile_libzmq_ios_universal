@@ -1,0 +1,271 @@
+#!/usr/bin/env bash
+
+#
+# Compile libzmq as iOS universal (fat) static library
+# Supported architectures; armv7, armv7s, i386
+#
+# Created by Sam de Freyssinet 
+#
+# Licensed under ISC License 
+# http://opensource.org/licenses/ISC
+# For full terms please read LICENSE included with this
+# project
+#
+# Please read the README.md file for use and more information 
+#
+# Project hosted on Github http://github.com/samsoir/libzmq-ios-universal
+#
+# Copyright (c) 2012 Sam de Freyssinet, some rights reserved
+#
+
+GLOBAL_OUTDIR=`pwd`/dependencies
+BUILD_DIR=`pwd`/build
+LIBZMQ_DIR=`pwd`/libzmq
+CURRENT_DIR=`pwd`
+LIBZMQ_FILE="libzmq.a"
+LIBZMQ_ARMV7_PREFIX="armv7"
+LIBZMQ_ARMV7S_PREFIX="armv7s"
+LIBZMQ_I686_PREFIX="i686"
+LIBZMQ_UNIVERSAL_FILE="libzmq.a"
+LIBZMQ_UNIVERSAL_PREFIX="universal"
+ZMQ_BUILD_LOG_FILE=$BUILD_DIR/build.log
+IOS_BASE_SDK="6.0"
+IOS_DEPLOY_TARGET="6.0"
+VERSION_NUMBER="1.0.0"
+
+print_help_text ()
+{
+  cat << EOF
+Usage: $0 [options]
+
+Build libzmq as an iOS Universal (fat) static library
+for use with the iOS Simulator (i386) and iOS device
+(armv7, armv7s) architectures.
+
+Options:
+  -h     show this message and exit
+  -v     show version number and exit
+  -l     libzmq configure autoconf location. e.g. /tmp/libzmq
+         If not supplied assumes "libzmq" is relative 
+         to current path.
+
+Requires:
+  libzmq 3.2.2 or later, plus libzmq required libraries
+  listed on zeromq download page http://www.zeromq.org/area:download
+
+  Xcode 4.3.3 or later, to discover your version type;
+  "xcodebuild -version"
+
+EOF
+  exit 1
+}
+
+print_version_number ()
+{
+  echo "$0 version ${VERSION_NUMBER}"
+  echo "Copyright (c) 2012 Sam de Freyssinet, same rights reserved"
+  exit 0
+}
+
+copy_zmq_headers ()
+{
+  echo "Copying libzmq headers into universal library..."
+  mkdir -p ${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/include
+  cp -R ${LIBZMQ_DIR}/include ${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}
+}
+
+create_universal_library ()
+{
+  echo "Creating universal static library for armv7, armv7s and i386"
+  
+  mkdir -p ${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib
+
+  lipo -create "${BUILD_DIR}/${LIBZMQ_ARMV7_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_ARMV7S_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_I686_PREFIX}/lib/${LIBZMQ_FILE}" -output "${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib/${LIBZMQ_FILE}"
+
+  copy_zmq_headers
+}
+
+clean_build_dir ()
+{
+  echo "Reinstating build directory..."
+  if [[ -d ${BUILD_DIR} ]]; then
+    rm -rf ${BUILD_DIR}
+  fi
+
+  mkdir -p ${BUILD_DIR}/${LIBZMQ_ARMV7_PREFIX}
+  mkdir -p ${BUILD_DIR}/${LIBZMQ_ARMV7S_PREFIX}
+  mkdir -p ${BUILD_DIR}/${LIBZMQ_I686_PREFIX}
+}
+
+clean_dependency_dir ()
+{
+  echo "Reinstating dependency directory..."
+  if [[ -d ${GLOBAL_OUTDIR} ]]; then
+    rm -rf ${GLOBAL_OUTDIR}
+  fi
+
+  mkdir -p ${GLOBAL_OUTDIR}/include ${GLOBAL_OUTDIR}/lib 
+}
+
+tidy_up ()
+{
+  echo "Tidying up..."
+  rm -rf builds
+  rm -rf config.*
+  rm -rf dependencies
+  rm -rf doc
+  rm -rf foreign
+  rm -f libtool
+  rm -f Makefile
+  rm -rf perf
+  rm -rf src
+  rm -rf tests 
+}
+
+setenv_all ()
+{
+  export CXX="${DEVROOT}/usr/bin/g++"
+  export CC="${DEVROOT}/usr/bin/gcc"
+  export AR="${DEVROOT}/usr/bin/ar"
+  export AS="${DEVROOT}/usr/bin/as"
+  export LD="${DEVROOT}/usr/bin/ld"
+  export LDFLAGS="-L${SDKROOT}/usr/lib"
+  export LIBTOOL="${DEVROOT}/usr/bin/libtool"
+  export STRIP="${DEVROOT}/usr/bin/strip"
+  export RANLIB="${DEVROOT}/usr/bin/ranlib"
+
+  export CFLAGS="$CFLAGS -I$GLOBAL_OUTDIR/include -L$GLOBAL_OUTDIR/lib"
+  export CXXFLAGS=$CFLAGS
+}
+
+setenv_armv7 ()
+{
+  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM CXXCPP RANLIB LDFLAGS CPPFLAGS CXXFLAGS
+
+  export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
+  export SDKROOT=$DEVROOT/SDKs/iPhoneOS$IOS_BASE_SDK.sdk
+  export CFLAGS="-arch armv7 -pipe -no-cpp-precomp -isysroot $SDKROOT -miphoneos-version-min=$IOS_DEPLOY_TARGET -I$SDKROOT/usr/include/"
+  export BUILD_HOST="arm-apple-darwin11"
+
+  setenv_all
+}
+
+setenv_armv7s ()
+{
+  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM CXXCPP RANLIB LDFLAGS CPPFLAGS CXXFLAGS
+
+  export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
+  export SDKROOT=$DEVROOT/SDKs/iPhoneOS$IOS_BASE_SDK.sdk
+  export CFLAGS="-arch armv7s -pipe -no-cpp-precomp -isysroot $SDKROOT -miphoneos-version-min=$IOS_DEPLOY_TARGET -I$SDKROOT/usr/include/"
+  export BUILD_HOST="arm-apple-darwin11"
+
+  setenv_all
+}
+
+setenv_i686 ()
+{
+  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM CXXCPP RANLIB LDFLAGS CPPFLAGS CXXFLAGS
+
+  export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer"
+  export SDKROOT=$DEVROOT/SDKs/iPhoneSimulator$IOS_BASE_SDK.sdk
+  export CFLAGS="-arch i386 -pipe -no-cpp-precomp -isysroot $SDKROOT -miphoneos-version-min=$IOS_DEPLOY_TARGET -I$SDKROOT/usr/include/"
+  export BUILD_HOST="i686-apple-darwin10"
+
+  setenv_all
+}
+
+compile_zmq_armv7 ()
+{
+  echo "Compiling libzmq for armv7..."
+  setenv_armv7
+  compile_zmq ${LIBZMQ_ARMV7_PREFIX}
+}
+
+compile_zmq_armv7s ()
+{
+  echo "Compiling libzmq for armv7s..."
+  setenv_armv7s
+  compile_zmq ${LIBZMQ_ARMV7S_PREFIX}
+}
+
+compile_zmq_i686 ()
+{
+  echo "Compiling libzmq for i386..."
+  setenv_i686
+  compile_zmq ${LIBZMQ_I686_PREFIX}
+}
+
+compile_zmq ()
+{
+  make distclean &> ${ZMQ_BUILD_LOG_FILE} 
+
+  ${LIBZMQ_DIR}/configure --disable-dependency-tracking --enable-static --disable-shared --host=${BUILD_HOST} --prefix=${BUILD_DIR}/$1 &> ${ZMQ_BUILD_LOG_FILE}
+
+  make &> ${ZMQ_BUILD_LOG_FILE}
+  make install &> ${ZMQ_BUILD_LOG_FILE}
+  make clean &> ${ZMQ_BUILD_LOG_FILE}
+}
+
+print_completion_text ()
+{
+  cat << EOF
+Finished compiling libzmq as a static library for iOS.
+
+Universal library can be found in build/universal;
+  "lib" folder contains "libzmq.a" static library
+  "include" folder contains headers
+
+To use in your project follow linking instructions
+available on the iOS zeromq page
+http://www.zeromq.org/build:iphone
+
+EOF
+}
+
+begin_compile ()
+{
+  clean_build_dir
+  clean_dependency_dir
+
+  compile_zmq_armv7
+  compile_zmq_armv7s
+  compile_zmq_i686
+  create_universal_library
+
+  tidy_up
+
+  print_completion_text
+
+  exit 0
+}
+
+print_unable_to_find_libzmq ()
+{
+  echo "Unable to locate libzmq in ${LIBZMQ_DIR}"
+  exit 1
+}
+
+verify_libzmq_location ()
+{
+  if [[ ! -f "${LIBZMQ_DIR}/configure" ]] || [[ ! -f "${LIBZMQ_DIR}/zeromq.spec" ]]; then
+    print_unable_to_find_libzmq
+  fi
+}
+
+while getopts ":hvl:" OPTION
+do
+  case $OPTION in
+    h)
+      print_help_text
+      ;;
+    v)
+      print_version_number
+      ;;
+    l)
+      LIBZMQ_DIR=$OPTARG
+      ;;
+  esac
+done
+
+verify_libzmq_location
+begin_compile
