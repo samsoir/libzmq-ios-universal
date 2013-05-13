@@ -18,9 +18,12 @@
 # Copyright (c) 2012 Sam de Freyssinet, some rights reserved
 #
 
+ZMQ_VERSION="3.2.3"
+ZMQ_ARCHIVE="zeromq-${ZMQ_VERSION}.tar.gz"
+
 GLOBAL_OUTDIR=`pwd`/dependencies
 BUILD_DIR=`pwd`/build
-LIBZMQ_DIR="`pwd`/zeromq-3.2.2"
+LIBZMQ_DIR="`pwd`/zeromq-${ZMQ_VERSION}"
 CURRENT_DIR=`pwd`
 LIBZMQ_FILE="libzmq.a"
 LIBZMQ_ARMV7_PREFIX="armv7"
@@ -45,14 +48,14 @@ for use with the iOS Simulator (i386) and iOS device
 Options:
   -h     show this message and exit
   -v     show version number and exit
-  -l     libzmq configure autoconf location. e.g. /tmp/zeromq-3.2.2
+  -l     libzmq configure autoconf location. e.g. /tmp/zeromq-3.2.3
          If not supplied assumes ${LIBZMQ_DIR}
 
 Requires:
-  libzmq 3.2.2 or later, plus libzmq required libraries
+  libzmq 3.2.3 or later, plus libzmq required libraries
   listed on zeromq download page http://www.zeromq.org/area:download
 
-  Xcode 4.3.3 or later, to discover your version type;
+  Xcode 4.6 or later, to discover your version type;
   "xcodebuild -version"
 
 EOF
@@ -64,6 +67,16 @@ print_version_number ()
   echo "$0 version ${VERSION_NUMBER}"
   echo "Copyright (c) 2012 Sam de Freyssinet, same rights reserved"
   exit 0
+}
+
+download_libzmq ()
+{
+  echo "-- Fetching ZeroMQ ${ZMQ_VERSION}"
+  curl http://download.zeromq.org/${ZMQ_ARCHIVE} -o ${ZMQ_ARCHIVE}
+  echo "-- Extracting ZeroMQ ${ZMQ_VERSION}"
+  tar xzf ${ZMQ_ARCHIVE}
+  echo "-- Removing the ZeroMQ archive"
+  rm ${ZMQ_ARCHIVE}
 }
 
 copy_zmq_headers ()
@@ -243,13 +256,13 @@ begin_compile ()
 print_unable_to_find_libzmq ()
 {
   echo "Unable to locate libzmq in ${LIBZMQ_DIR}"
-  exit 1
 }
 
 verify_libzmq_location ()
 {
   if [[ ! -f "${LIBZMQ_DIR}/configure" ]] || [[ ! -f "${LIBZMQ_DIR}/zeromq.spec" ]]; then
     print_unable_to_find_libzmq
+    download_libzmq
   fi
 }
 
