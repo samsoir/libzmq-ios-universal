@@ -253,16 +253,25 @@ begin_compile ()
   exit 0
 }
 
-print_unable_to_find_libzmq ()
+prompt_to_download_libzmq ()
 {
   echo "Unable to locate libzmq in ${LIBZMQ_DIR}"
+
+  while true; do
+      yn=
+      vared -p "Would you like to download libzmq? " yn
+      case $yn in
+          [Yy]* ) download_libzmq; return 0;;
+          [Nn]* ) exit 1;;
+          * ) echo "Please answer yes or no.";;
+      esac
+  done
 }
 
 verify_libzmq_location ()
 {
   if [[ ! -f "${LIBZMQ_DIR}/configure" ]] || [[ ! -f "${LIBZMQ_DIR}/zeromq.spec" ]]; then
-    print_unable_to_find_libzmq
-    download_libzmq
+    prompt_to_download_libzmq
   fi
 }
 
