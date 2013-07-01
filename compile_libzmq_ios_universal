@@ -1,26 +1,29 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 
 #
 # Compile libzmq as iOS universal (fat) static library
 # Supported architectures; armv7, armv7s, i386
 #
-# Created by Sam de Freyssinet 
+# Created by Sam de Freyssinet
 #
-# Licensed under ISC License 
+# Licensed under ISC License
 # http://opensource.org/licenses/ISC
 # For full terms please read LICENSE included with this
 # project
 #
-# Please read the README.md file for use and more information 
+# Please read the README.md file for use and more information
 #
 # Project hosted on Github http://github.com/samsoir/libzmq-ios-universal
 #
 # Copyright (c) 2012 Sam de Freyssinet, some rights reserved
 #
 
+ZMQ_VERSION="3.2.3"
+ZMQ_ARCHIVE="zeromq-${ZMQ_VERSION}.tar.gz"
+
 GLOBAL_OUTDIR=`pwd`/dependencies
 BUILD_DIR=`pwd`/build
-LIBZMQ_DIR="`pwd`/zeromq-3.2.2"
+LIBZMQ_DIR="`pwd`/zeromq-${ZMQ_VERSION}"
 CURRENT_DIR=`pwd`
 LIBZMQ_FILE="libzmq.a"
 LIBZMQ_ARMV7_PREFIX="armv7"
@@ -29,8 +32,8 @@ LIBZMQ_I686_PREFIX="i386"
 LIBZMQ_UNIVERSAL_FILE="libzmq.a"
 LIBZMQ_UNIVERSAL_PREFIX="universal"
 ZMQ_BUILD_LOG_FILE=$BUILD_DIR/build.log
-IOS_BASE_SDK="6.0"
-IOS_DEPLOY_TARGET="6.0"
+IOS_BASE_SDK="6.1"
+IOS_DEPLOY_TARGET="5.1"
 VERSION_NUMBER="1.0.0"
 
 print_help_text ()
@@ -45,14 +48,14 @@ for use with the iOS Simulator (i386) and iOS device
 Options:
   -h     show this message and exit
   -v     show version number and exit
-  -l     libzmq configure autoconf location. e.g. /tmp/zeromq-3.2.2
+  -l     libzmq configure autoconf location. e.g. /tmp/zeromq-3.2.3
          If not supplied assumes ${LIBZMQ_DIR}
 
 Requires:
-  libzmq 3.2.2 or later, plus libzmq required libraries
+  libzmq 3.2.3 or later, plus libzmq required libraries
   listed on zeromq download page http://www.zeromq.org/area:download
 
-  Xcode 4.3.3 or later, to discover your version type;
+  Xcode 4.6 or later, to discover your version type;
   "xcodebuild -version"
 
 EOF
@@ -66,6 +69,16 @@ print_version_number ()
   exit 0
 }
 
+download_libzmq ()
+{
+  echo "-- Fetching ZeroMQ ${ZMQ_VERSION}"
+  curl http://download.zeromq.org/${ZMQ_ARCHIVE} -o ${ZMQ_ARCHIVE}
+  echo "-- Extracting ZeroMQ ${ZMQ_VERSION}"
+  tar xzf ${ZMQ_ARCHIVE}
+  echo "-- Removing the ZeroMQ archive"
+  rm ${ZMQ_ARCHIVE}
+}
+
 copy_zmq_headers ()
 {
   echo "Copying libzmq headers into universal library..."
@@ -76,7 +89,7 @@ copy_zmq_headers ()
 create_universal_library ()
 {
   echo "Creating universal static library for armv7, armv7s and i386"
-  
+
   mkdir -p ${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib
 
   lipo -create "${BUILD_DIR}/${LIBZMQ_ARMV7_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_ARMV7S_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_I686_PREFIX}/lib/${LIBZMQ_FILE}" -output "${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib/${LIBZMQ_FILE}"
@@ -103,7 +116,7 @@ clean_dependency_dir ()
     rm -rf ${GLOBAL_OUTDIR}
   fi
 
-  mkdir -p ${GLOBAL_OUTDIR}/include ${GLOBAL_OUTDIR}/lib 
+  mkdir -p ${GLOBAL_OUTDIR}/include ${GLOBAL_OUTDIR}/lib
 }
 
 tidy_up ()
@@ -118,13 +131,15 @@ tidy_up ()
   rm -f Makefile
   rm -rf perf
   rm -rf src
-  rm -rf tests 
+  rm -rf tests
 }
 
 setenv_all ()
 {
-  export CXX="${DEVROOT}/usr/bin/g++"
-  export CC="${DEVROOT}/usr/bin/gcc"
+  export CPP="cpp"
+  export CXXCPP="cpp"
+  export CXX="$(xcrun -sdk iphoneos -find clang++)"
+  export CC="$(xcrun -sdk iphoneos -find clang)"
   export AR="${DEVROOT}/usr/bin/ar"
   export AS="${DEVROOT}/usr/bin/as"
   export LD="${DEVROOT}/usr/bin/ld"
@@ -143,8 +158,8 @@ setenv_armv7 ()
 
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
   export SDKROOT=${DEVROOT}/SDKs/iPhoneOS${IOS_BASE_SDK}.sdk
-  export CFLAGS="-arch armv7 -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I{$SDKROOT}/usr/include/"
-  export BUILD_HOST="arm-apple-darwin11"
+  export CFLAGS="-arch armv7 -pipe -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I{$SDKROOT}/usr/include/"
+  export BUILD_HOST="armv7-apple-darwin"
 
   setenv_all
 }
@@ -155,8 +170,8 @@ setenv_armv7s ()
 
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
   export SDKROOT=${DEVROOT}/SDKs/iPhoneOS${IOS_BASE_SDK}.sdk
-  export CFLAGS="-arch armv7s -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
-  export BUILD_HOST="arm-apple-darwin11"
+  export CFLAGS="-arch armv7s -pipe -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
+  export BUILD_HOST="armv7s-apple-darwin"
 
   setenv_all
 }
@@ -167,8 +182,8 @@ setenv_i686 ()
 
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer"
   export SDKROOT=${DEVROOT}/SDKs/iPhoneSimulator${IOS_BASE_SDK}.sdk
-  export CFLAGS="-arch i386 -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
-  export BUILD_HOST="i686-apple-darwin10"
+  export CFLAGS="-arch i386 -pipe -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
+  export BUILD_HOST="i686-apple-darwin"
 
   setenv_all
 }
@@ -196,13 +211,13 @@ compile_zmq_i686 ()
 
 compile_zmq ()
 {
-  make distclean &> ${ZMQ_BUILD_LOG_FILE} 
+  make distclean &>>| /dev/null
 
-  ${LIBZMQ_DIR}/configure --disable-dependency-tracking --enable-static --disable-shared --host=${BUILD_HOST} --prefix=${BUILD_DIR}/$1 &> ${ZMQ_BUILD_LOG_FILE}
+  ${LIBZMQ_DIR}/configure --disable-dependency-tracking --enable-static --disable-shared --host=${BUILD_HOST} --prefix=${BUILD_DIR}/$1 &>>| ${ZMQ_BUILD_LOG_FILE}
 
-  make &> ${ZMQ_BUILD_LOG_FILE}
-  make install &> ${ZMQ_BUILD_LOG_FILE}
-  make clean &> ${ZMQ_BUILD_LOG_FILE}
+  make &>>| ${ZMQ_BUILD_LOG_FILE}
+  make install &>>| ${ZMQ_BUILD_LOG_FILE}
+  make clean &>>| /dev/null
 }
 
 print_completion_text ()
@@ -238,16 +253,25 @@ begin_compile ()
   exit 0
 }
 
-print_unable_to_find_libzmq ()
+prompt_to_download_libzmq ()
 {
   echo "Unable to locate libzmq in ${LIBZMQ_DIR}"
-  exit 1
+
+  while true; do
+      yn=
+      vared -p "Would you like to download libzmq? " yn
+      case $yn in
+          [Yy]* ) download_libzmq; return 0;;
+          [Nn]* ) exit 1;;
+          * ) echo "Please answer yes or no.";;
+      esac
+  done
 }
 
 verify_libzmq_location ()
 {
   if [[ ! -f "${LIBZMQ_DIR}/configure" ]] || [[ ! -f "${LIBZMQ_DIR}/zeromq.spec" ]]; then
-    print_unable_to_find_libzmq
+    prompt_to_download_libzmq
   fi
 }
 
