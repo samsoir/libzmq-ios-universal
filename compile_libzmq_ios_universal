@@ -2,7 +2,7 @@
 
 #
 # Compile libzmq as iOS universal (fat) static library
-# Supported architectures; armv7, armv7s, i386
+# Supported architectures; armv7, armv7s, arm64, i386
 #
 # Created by Sam de Freyssinet 
 #
@@ -18,20 +18,33 @@
 # Copyright (c) 2012 Sam de Freyssinet, some rights reserved
 #
 
-GLOBAL_OUTDIR=`pwd`/dependencies
-BUILD_DIR=`pwd`/build
-LIBZMQ_DIR="`pwd`/zeromq-3.2.2"
-CURRENT_DIR=`pwd`
+# NOTE:
+# There will be an error before compiling ARM codes:
+#   configure: error: C preprocessor "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/cpp" fails sanity check
+# You have to modify file (change the SDK version number if need)
+#   /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/usr/include/sys/cdefs.h
+# and remove the following line (around the end of file)
+#   #error Unsupported architecture
+# before compile. (You can add back later)
+
+set -e
+# set -x # show executed command
+
+CURRENT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+GLOBAL_OUTDIR=$CURRENT_DIR/dependencies
+BUILD_DIR=$CURRENT_DIR/build
+LIBZMQ_DIR=$CURRENT_DIR/zeromq
 LIBZMQ_FILE="libzmq.a"
 LIBZMQ_ARMV7_PREFIX="armv7"
 LIBZMQ_ARMV7S_PREFIX="armv7s"
+LIBZMQ_ARM64_PREFIX="arm64"
 LIBZMQ_I686_PREFIX="i386"
 LIBZMQ_UNIVERSAL_FILE="libzmq.a"
 LIBZMQ_UNIVERSAL_PREFIX="universal"
 ZMQ_BUILD_LOG_FILE=$BUILD_DIR/build.log
-IOS_BASE_SDK="6.0"
-IOS_DEPLOY_TARGET="6.0"
-VERSION_NUMBER="1.0.0"
+IOS_BASE_SDK="7.0"
+IOS_DEPLOY_TARGET="4.0"
+VERSION_NUMBER="5.0.0" # Xcode 5
 
 print_help_text ()
 {
@@ -75,11 +88,11 @@ copy_zmq_headers ()
 
 create_universal_library ()
 {
-  echo "Creating universal static library for armv7, armv7s and i386"
+  echo "Creating universal static library"
   
   mkdir -p ${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib
 
-  lipo -create "${BUILD_DIR}/${LIBZMQ_ARMV7_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_ARMV7S_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_I686_PREFIX}/lib/${LIBZMQ_FILE}" -output "${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib/${LIBZMQ_FILE}"
+  lipo -create "${BUILD_DIR}/${LIBZMQ_ARMV7_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_ARMV7S_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_ARM64_PREFIX}/lib/${LIBZMQ_FILE}" "${BUILD_DIR}/${LIBZMQ_I686_PREFIX}/lib/${LIBZMQ_FILE}" -output "${BUILD_DIR}/${LIBZMQ_UNIVERSAL_PREFIX}/lib/${LIBZMQ_FILE}"
 
   copy_zmq_headers
 }
@@ -90,10 +103,6 @@ clean_build_dir ()
   if [[ -d ${BUILD_DIR} ]]; then
     rm -rf ${BUILD_DIR}
   fi
-
-  mkdir -p ${BUILD_DIR}/${LIBZMQ_ARMV7_PREFIX}
-  mkdir -p ${BUILD_DIR}/${LIBZMQ_ARMV7S_PREFIX}
-  mkdir -p ${BUILD_DIR}/${LIBZMQ_I686_PREFIX}
 }
 
 clean_dependency_dir ()
@@ -109,100 +118,82 @@ clean_dependency_dir ()
 tidy_up ()
 {
   echo "Tidying up..."
-  rm -rf builds
-  rm -rf config.*
-  rm -rf dependencies
-  rm -rf doc
-  rm -rf foreign
-  rm -f libtool
-  rm -f Makefile
-  rm -rf perf
-  rm -rf src
-  rm -rf tests 
+  cd ${LIBZMQ_DIR}
+  make distclean >> ${ZMQ_BUILD_LOG_FILE}
+  cd ${CURRENT_DIR}
 }
 
 setenv_all ()
 {
-  export CXX="${DEVROOT}/usr/bin/g++"
-  export CC="${DEVROOT}/usr/bin/gcc"
-  export AR="${DEVROOT}/usr/bin/ar"
-  export AS="${DEVROOT}/usr/bin/as"
-  export LD="${DEVROOT}/usr/bin/ld"
-  export LDFLAGS="-L${SDKROOT}/usr/lib"
-  export LIBTOOL="${DEVROOT}/usr/bin/libtool"
-  export STRIP="${DEVROOT}/usr/bin/strip"
-  export RANLIB="${DEVROOT}/usr/bin/ranlib"
+  export CPP=`xcrun -find cpp`
+  export CC=`xcrun -find clang`
+  export CXXCPP=`xcrun -find cpp`
+  export CXX=`xcrun -find clang++`
 
-  export CFLAGS="${CFLAGS} -I${GLOBAL_OUTDIR}/include -L${GLOBAL_OUTDIR}/lib"
+  export AR=`xcrun -find ar`
+  export AS=`xcrun -find as`
+  export LD=`xcrun -find ld`
+  export LDFLAGS="-L${SDKROOT}/usr/lib"
+  export LIBTOOL=`xcrun -find libtool`
+  export STRIP=`xcrun -find strip`
+  export RANLIB=`xcrun -find ranlib`
+
+  export CFLAGS="${CFLAGS}" # -I${GLOBAL_OUTDIR}/include -L${GLOBAL_OUTDIR}/lib"
   export CXXFLAGS=${CFLAGS}
 }
 
-setenv_armv7 ()
+setenv_iphone ()
 {
   unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM RANLIB LDFLAGS CXXFLAGS
 
+  export ARCH=$1
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
   export SDKROOT=${DEVROOT}/SDKs/iPhoneOS${IOS_BASE_SDK}.sdk
-  export CFLAGS="-arch armv7 -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I{$SDKROOT}/usr/include/"
-  export BUILD_HOST="arm-apple-darwin11"
+  export CFLAGS="-arch ${ARCH} -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I{$SDKROOT}/usr/include/"
+  export BUILD_HOST="arm-apple-darwin"
 
   setenv_all
 }
 
-setenv_armv7s ()
+setenv_simulator ()
 {
   unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM RANLIB LDFLAGS CXXFLAGS
 
-  export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
-  export SDKROOT=${DEVROOT}/SDKs/iPhoneOS${IOS_BASE_SDK}.sdk
-  export CFLAGS="-arch armv7s -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
-  export BUILD_HOST="arm-apple-darwin11"
-
-  setenv_all
-}
-
-setenv_i686 ()
-{
-  unset BUILD_HOST DEVROOT SDKROOT CFLAGS CC LD CPP CXX AR AS NM RANLIB LDFLAGS CXXFLAGS
-
+  export ARCH=$1
   export DEVROOT="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer"
   export SDKROOT=${DEVROOT}/SDKs/iPhoneSimulator${IOS_BASE_SDK}.sdk
-  export CFLAGS="-arch i386 -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
-  export BUILD_HOST="i686-apple-darwin10"
+  export CFLAGS="-arch ${ARCH} -pipe -no-cpp-precomp -isysroot ${SDKROOT} -miphoneos-version-min=${IOS_DEPLOY_TARGET} -I${SDKROOT}/usr/include/"
+  export BUILD_HOST="i686-apple-darwin"
 
   setenv_all
 }
 
-compile_zmq_armv7 ()
+compile_iphone ()
 {
-  echo "Compiling libzmq for armv7..."
-  setenv_armv7
-  compile_zmq ${LIBZMQ_ARMV7_PREFIX}
+  echo "Compiling libzmq for "$1"..."
+  mkdir -p ${BUILD_DIR}/$1
+  setenv_iphone $1
+  compile_zmq $1
 }
 
-compile_zmq_armv7s ()
+compile_simulator ()
 {
-  echo "Compiling libzmq for armv7s..."
-  setenv_armv7s
-  compile_zmq ${LIBZMQ_ARMV7S_PREFIX}
-}
-
-compile_zmq_i686 ()
-{
-  echo "Compiling libzmq for i386..."
-  setenv_i686
-  compile_zmq ${LIBZMQ_I686_PREFIX}
+  echo "Compiling libzmq for "$1"..."
+  mkdir -p ${BUILD_DIR}/$1
+  setenv_simulator $1
+  compile_zmq $1
 }
 
 compile_zmq ()
 {
-  make distclean &> ${ZMQ_BUILD_LOG_FILE} 
+  cd ${LIBZMQ_DIR}
 
-  ${LIBZMQ_DIR}/configure --disable-dependency-tracking --enable-static --disable-shared --host=${BUILD_HOST} --prefix=${BUILD_DIR}/$1 &> ${ZMQ_BUILD_LOG_FILE}
+  ./configure --disable-dependency-tracking --enable-static --disable-shared --host=${BUILD_HOST} --prefix=${BUILD_DIR}/$1 >> ${ZMQ_BUILD_LOG_FILE}
 
-  make &> ${ZMQ_BUILD_LOG_FILE}
-  make install &> ${ZMQ_BUILD_LOG_FILE}
-  make clean &> ${ZMQ_BUILD_LOG_FILE}
+  make >> ${ZMQ_BUILD_LOG_FILE}
+  make install >> ${ZMQ_BUILD_LOG_FILE}
+  make clean >> ${ZMQ_BUILD_LOG_FILE}
+  lipo -info ${BUILD_DIR}/$1/lib/libzmq.a
 }
 
 print_completion_text ()
@@ -226,9 +217,10 @@ begin_compile ()
   clean_build_dir
   clean_dependency_dir
 
-  compile_zmq_armv7
-  compile_zmq_armv7s
-  compile_zmq_i686
+  compile_iphone ${LIBZMQ_ARMV7_PREFIX}
+  compile_iphone ${LIBZMQ_ARMV7S_PREFIX}
+  compile_iphone ${LIBZMQ_ARM64_PREFIX}
+  compile_simulator ${LIBZMQ_I686_PREFIX}
   create_universal_library
 
   tidy_up
@@ -268,3 +260,4 @@ done
 
 verify_libzmq_location
 begin_compile
+
